@@ -3,59 +3,131 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+## MCP Tools
+## -----------------------------------------------------------------------------
+
+"""
+Tool: fetch_daily_new_submissions
+Fetch today's new arXiv submissions for a given category.
+"""
+fetch_daily_new_submissions_tool = MCPTool(
+    name = "fetch_daily_new_submissions",
+    description = "Fetch today's new arXiv submissions for a given category. Returns a list of newly submitted papers with titles, authors, abstracts, and links.",
+    parameters = [
+        ToolParameter(
+            name = "category",
+            type = "string",
+            description = "arXiv category (e.g., \"hep-ph\", \"cs.AI\", \"math.CO\", \"cond-mat.mes-hall\"). Use the top-level category (e.g., \"hep-ph\") for all subcategories.",
+            required = true
+        ),
+        ToolParameter(
+            name = "max_abstract_length",
+            type = "integer",
+            description = "Maximum length of each abstract to display. 0 means no truncation. Default: 500.",
+            required = false,
+            default = 500
+        )
+    ],
+    handler = function(params)
+        category = params["category"]
+        max_len = get(params, "max_abstract_length", 500)
+        if isa(max_len, String)
+            max_len = parse(Int, max_len)
+        end
+
+        try
+            doc = fetch_rss_feed(category)
+            papers = parse_rss_items(doc; announce_type="new")
+            return TextContent(text = papers_to_json(papers; max_abstract_length=max_len))
+        catch e
+            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv RSS feed for category '$category': $e")))
+        end
+    end
+)
+
+"""
+Tool: fetch_daily_cross_listed
+Fetch today's cross-listed arXiv papers for a given category.
+Cross-listed papers are primarily submitted to other categories but are relevant to this one.
+"""
+fetch_daily_cross_listed_tool = MCPTool(
+    name = "fetch_daily_cross_listed",
+    description = "Fetch today's cross-listed arXiv papers for a given category. These are papers primarily submitted to other categories but cross-listed as relevant to the specified category.",
+    parameters = [
+        ToolParameter(
+            name = "category",
+            type = "string",
+            description = "arXiv category (e.g., \"hep-ph\", \"cs.AI\", \"math.CO\").",
+            required = true
+        ),
+        ToolParameter(
+            name = "max_abstract_length",
+            type = "integer",
+            description = "Maximum length of each abstract to display. 0 means no truncation. Default: 500.",
+            required = false,
+            default = 500
+        )
+    ],
+    handler = function(params)
+        category = params["category"]
+        max_len = get(params, "max_abstract_length", 500)
+        if isa(max_len, String)
+            max_len = parse(Int, max_len)
+        end
+
+        try
+            doc = fetch_rss_feed(category)
+            papers = parse_rss_items(doc; announce_type="cross")
+            return TextContent(text = papers_to_json(papers; max_abstract_length=max_len))
+        catch e
+            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv RSS feed for category '$category': $e")))
+        end
+    end
+)
+
+"""
+Tool: fetch_all_daily_updates
+Fetch all today's arXiv updates (new + cross-listed) for a given category.
+"""
+fetch_all_daily_updates_tool = MCPTool(
+    name = "fetch_all_daily_updates",
+    description = "Fetch all today's arXiv updates (both new submissions and cross-listed papers) for a given category.",
+    parameters = [
+        ToolParameter(
+            name = "category",
+            type = "string",
+            description = "arXiv category (e.g., \"hep-ph\", \"cs.AI\", \"math.CO\").",
+            required = true
+        ),
+        ToolParameter(
+            name = "max_abstract_length",
+            type = "integer",
+            description = "Maximum length of each abstract to display. 0 means no truncation. Default: 500.",
+            required = false,
+            default = 500
+        )
+    ],
+    handler = function(params)
+        category = params["category"]
+        max_len = get(params, "max_abstract_length", 500)
+        if isa(max_len, String)
+            max_len = parse(Int, max_len)
+        end
+
+        try
+            doc = fetch_rss_feed(category)
+            papers = parse_rss_items(doc)
+            return TextContent(text = papers_to_json(papers; max_abstract_length=max_len))
+        catch e
+            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv RSS feed for category '$category': $e")))
+        end
+    end
+)
+
 ## Constants
 ## -----------------------------------------------------------------------------
 
 const ARXIV_RSS_BASE_URL = "https://rss.arxiv.org/atom/"
-
-const _ARXIV_CATEGORIES_CACHE = Ref{Vector{String}}(String[])
-
-"""
-    fetch_arxiv_categories()::Vector{String}
-
-Fetch the list of arXiv category identifiers from `https://arxiv.org/category_taxonomy`.
-Extracts category IDs from `<h4>` elements (e.g. `cs.AI`, `hep-ph`) and prepends
-top-level archive IDs (e.g. `astro-ph`, `cs`, `math`) derived from the sub-categories.
-"""
-function fetch_arxiv_categories()::Vector{String}
-    url = "https://arxiv.org/category_taxonomy"
-    response = HTTP.get(url; headers=Dict("User-Agent" => "FytcMCP_arXiv/0.1.0"))
-    if response.status != 200
-        error("Failed to fetch arXiv category taxonomy: HTTP $(response.status)")
-    end
-
-    doc = parsehtml(String(response.body))
-
-    # Extract category IDs from all <h4> elements
-    categories = String[]
-    for h4 in findall("//h4", doc)
-        text = strip(nodecontent(h4))
-        m = match(r"^([a-z][\w-]+(?:\.[A-Z][\w-]+)?)", text)
-        if m !== nothing
-            push!(categories, m.captures[1])
-        end
-    end
-
-    # Derive top-level archive IDs (prefixes before the dot) and merge
-    archives = Set{String}()
-    for cat in categories
-        occursin('.', cat) && push!(archives, cat[1:findfirst('.', cat)-1])
-    end
-
-    return sort(unique(vcat(collect(archives), categories)))
-end
-
-"""
-    arxiv_categories()::Vector{String}
-
-Return the cached list of arXiv categories, fetching on first call.
-"""
-function arxiv_categories()::Vector{String}
-    if isempty(_ARXIV_CATEGORIES_CACHE[])
-        _ARXIV_CATEGORIES_CACHE[] = fetch_arxiv_categories()
-    end
-    return _ARXIV_CATEGORIES_CACHE[]
-end
 
 ## Helper functions
 ## -----------------------------------------------------------------------------

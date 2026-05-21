@@ -33,6 +33,7 @@
             t = tool_dict["list_arxiv_categories"]
             param_names = [p.name for p in t.parameters]
             @test "filter" in param_names
+            @test "refresh" in param_names
         end
     end
 
@@ -45,18 +46,16 @@
             data = JSON3.read(result.text)
             @test data["count"] > 0
             @test haskey(data, "categories")
-            @test haskey(data["categories"], "hep-ph")
+            @test haskey(data["categories"], "cs")
         end
 
         @testset "with filter" begin
-            result = t.handler(Dict{String, Any}("filter" => "hep"))
+            result = t.handler(Dict{String, Any}("filter" => "cs"))
             data = JSON3.read(result.text)
             @test data["count"] > 0
-            @test data["filter"] == "hep"
+            @test data["filter"] == "cs"
             for (group, subs) in pairs(data["categories"])
-                for s in subs
-                    @test occursin("hep", lowercase(s))
-                end
+                @test occursin("cs", lowercase(string(group)))
             end
         end
 
