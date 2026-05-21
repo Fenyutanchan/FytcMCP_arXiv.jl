@@ -1,5 +1,5 @@
 @testset "ARXIV_CATEGORIES" begin
-    cats = FytcMCP_arXiv.arxiv_categories()
+    cats = FytcMCP_arXiv.arXiv_categories()
 
     @testset "is non-empty" begin
         @test !isempty(cats)

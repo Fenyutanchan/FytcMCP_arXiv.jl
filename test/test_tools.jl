@@ -6,8 +6,8 @@
         @test "fetch_daily_new_submissions" in tool_names
         @test "fetch_daily_cross_listed" in tool_names
         @test "fetch_all_daily_updates" in tool_names
-        @test "get_arxiv_paper" in tool_names
-        @test "list_arxiv_categories" in tool_names
+        @test "get_arXiv_paper" in tool_names
+        @test "list_arXiv_categories" in tool_names
         @test length(tools) == 5
     end
 
@@ -22,23 +22,23 @@
             @test "max_abstract_length" in param_names
         end
 
-        @testset "get_arxiv_paper params" begin
-            t = tool_dict["get_arxiv_paper"]
+        @testset "get_arXiv_paper params" begin
+            t = tool_dict["get_arXiv_paper"]
             param_names = [p.name for p in t.parameters]
-            @test "arxiv_id" in param_names
+            @test "arXiv_id" in param_names
             @test "category" in param_names
         end
 
-        @testset "list_arxiv_categories params" begin
-            t = tool_dict["list_arxiv_categories"]
+        @testset "list_arXiv_categories params" begin
+            t = tool_dict["list_arXiv_categories"]
             param_names = [p.name for p in t.parameters]
             @test "filter" in param_names
             @test "refresh" in param_names
         end
     end
 
-    @testset "list_arxiv_categories handler (live)" begin
-        t = only(filter(t -> t.name == "list_arxiv_categories", FytcMCP_arXiv.server.tools))
+    @testset "list_arXiv_categories handler (live)" begin
+        t = only(filter(t -> t.name == "list_arXiv_categories", FytcMCP_arXiv.server.tools))
 
         @testset "without filter" begin
             result = t.handler(Dict{String, Any}())
@@ -75,7 +75,7 @@
         @test haskey(data, "papers")
         if data["count"] > 0
             p = data["papers"][1]
-            @test haskey(p, "arxiv_id")
+            @test haskey(p, "arXiv_id")
             @test haskey(p, "title")
             @test haskey(p, "abstract")
             @test p["announce_type"] == "new"

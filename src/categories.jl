@@ -7,11 +7,11 @@
 ## -----------------------------------------------------------------------------
 
 """
-Tool: list_arxiv_categories
+Tool: list_arXiv_categories
 List the supported arXiv categories.
 """
-list_arxiv_categories_tool = MCPTool(
-    name = "list_arxiv_categories",
+list_arXiv_categories_tool = MCPTool(
+    name = "list_arXiv_categories",
     description = "List all supported arXiv category identifiers that can be used with the fetch tools.",
     parameters = [
         ToolParameter(
@@ -33,7 +33,7 @@ list_arxiv_categories_tool = MCPTool(
         if isa(do_refresh, String)
             do_refresh = parse(Bool, do_refresh)
         end
-        cats = arxiv_categories(; refresh=do_refresh)
+        cats = arXiv_categories(; refresh=do_refresh)
         filtered = if filter_str != ""
             result = Dict{String, Vector{String}}()
             for (top, subs) in cats
@@ -70,14 +70,14 @@ const _ARXIV_CATEGORIES_CACHE = Dict{String, Vector{String}}()
 ## -----------------------------------------------------------------------------
 
 """
-    fetch_arxiv_categories()::Dict{String, Vector{String}}
+    fetch_arXiv_categories()::Dict{String, Vector{String}}
 
 Fetch the list of arXiv category identifiers from `https://arxiv.org/category_taxonomy`.
 Extracts category IDs from `<h4>` elements and organizes them into a hierarchy:
 top-level archives (e.g. `cs`, `astro-ph`) map to their sub-categories (e.g. `cs.AI`, `astro-ph.CO`).
 Archives without sub-categories map to an empty vector.
 """
-function fetch_arxiv_categories()::Dict{String, Vector{String}}
+function fetch_arXiv_categories()::Dict{String, Vector{String}}
     url = "https://arxiv.org/category_taxonomy"
     response = HTTP.get(url; headers=Dict("User-Agent" => "FytcMCP_arXiv/0.1.0"))
     if response.status != 200
@@ -113,15 +113,15 @@ function fetch_arxiv_categories()::Dict{String, Vector{String}}
 end
 
 """
-    arxiv_categories(; refresh::Bool=false)::Dict{String, Vector{String}}
+    arXiv_categories(; refresh::Bool=false)::Dict{String, Vector{String}}
 
 Return the cached hierarchy of arXiv categories, fetching on first call.
 Set `refresh=true` to force re-fetch from the taxonomy page.
 """
-function arxiv_categories(; refresh::Bool=false)::Dict{String, Vector{String}}
+function arXiv_categories(; refresh::Bool=false)::Dict{String, Vector{String}}
     if isempty(_ARXIV_CATEGORIES_CACHE) || refresh
         empty!(_ARXIV_CATEGORIES_CACHE)
-        merge!(_ARXIV_CATEGORIES_CACHE, fetch_arxiv_categories())
+        merge!(_ARXIV_CATEGORIES_CACHE, fetch_arXiv_categories())
     end
     return _ARXIV_CATEGORIES_CACHE
 end

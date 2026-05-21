@@ -1,6 +1,6 @@
 @testset "truncate_abstract" begin
     paper = Dict{String, Any}(
-        "arxiv_id" => "2605.10003",
+        "arXiv_id" => "2605.10003",
         "title" => "Test",
         "abstract" => "A" ^ 200,
     )
@@ -32,7 +32,7 @@ end
 @testset "papers_to_json" begin
     papers = [
         Dict{String, Any}(
-            "arxiv_id" => "2605.10001",
+            "arXiv_id" => "2605.10001",
             "title" => "Paper One",
             "authors" => "Author A",
             "abstract" => "Short abstract.",
@@ -42,7 +42,7 @@ end
             "pub_date" => "Wed, 21 May 2026 00:00:00 -0400",
         ),
         Dict{String, Any}(
-            "arxiv_id" => "2605.10002",
+            "arXiv_id" => "2605.10002",
             "title" => "Paper Two",
             "authors" => "Author B",
             "abstract" => "Another abstract.",
@@ -58,7 +58,7 @@ end
         result = JSON3.read(json_str)
         @test result["count"] == 2
         @test length(result["papers"]) == 2
-        @test result["papers"][1]["arxiv_id"] == "2605.10001"
+        @test result["papers"][1]["arXiv_id"] == "2605.10001"
         @test result["papers"][2]["title"] == "Paper Two"
     end
 
@@ -71,7 +71,7 @@ end
 
     @testset "truncation via max_abstract_length" begin
         long_papers = [Dict{String, Any}(
-            "arxiv_id" => "2605.10001",
+            "arXiv_id" => "2605.10001",
             "title" => "Paper",
             "authors" => "Author",
             "abstract" => "X" ^ 200,

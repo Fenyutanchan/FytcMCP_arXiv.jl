@@ -1,6 +1,6 @@
 # Model Context Protocol for arXiv
 
-An MCP (Model Context Protocol) server for fetching daily arXiv updates via RSS feeds.
+An MCP (Model Context Protocol) server for arXiv (https://arxiv.org) manipulations.
 
 ## Features
 
@@ -29,7 +29,7 @@ Add to your MCP settings:
 ```json
 {
   "mcpServers": {
-    "arxiv": {
+    "FytcMCP_arXiv": {
       "command": "julia",
       "args": ["--project", "/path/to/FytcMCP_arXiv", "bin/start_server.jl"]
     }

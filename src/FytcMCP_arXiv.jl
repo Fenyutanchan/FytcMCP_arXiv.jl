@@ -17,15 +17,15 @@ include("daily.jl")
 ## -----------------------------------------------------------------------------
 
 """
-Tool: get_arxiv_paper
-Fetch the details of a specific arXiv paper by its ID from the RSS feed.
+Tool: get_arXiv_paper
+Fetch the details of a specific arXiv paper by its ID from the Atom feed.
 """
-get_arxiv_paper_tool = MCPTool(
-    name = "get_arxiv_paper",
-    description = "Get the full details (title, authors, abstract, categories) of a specific arXiv paper by its ID (e.g., \"2605.20332\"). This fetches from the daily RSS feed.",
+get_arXiv_paper_tool = MCPTool(
+    name = "get_arXiv_paper",
+    description = "Get the full details (title, authors, abstract, categories) of a specific arXiv paper by its ID (e.g., \"2605.20332\"). This fetches from the daily Atom feed.",
     parameters = [
         ToolParameter(
-            name = "arxiv_id",
+            name = "arXiv_id",
             type = "string",
             description = "arXiv paper ID (e.g., \"2605.20332\").",
             required = true
@@ -38,7 +38,7 @@ get_arxiv_paper_tool = MCPTool(
         )
     ],
     handler = function(params)
-        arxiv_id = params["arxiv_id"]
+        arXiv_id = params["arXiv_id"]
         specified_category = get(params, "category", nothing)
 
         # Categories to search
@@ -51,10 +51,10 @@ get_arxiv_paper_tool = MCPTool(
 
         for cat in categories_to_search
             try
-                doc = fetch_rss_feed(cat)
-                papers = parse_rss_items(doc)
+                doc = fetch_atom_feed(cat)
+                papers = parse_atom_items(doc)
                 for paper in papers
-                    if paper["arxiv_id"] == arxiv_id
+                    if paper["arXiv_id"] == arXiv_id
                         return TextContent(text = JSON3.write(paper))
                     end
                 end
@@ -63,7 +63,7 @@ get_arxiv_paper_tool = MCPTool(
             end
         end
 
-        return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Paper with arXiv ID '$arxiv_id' not found in recent RSS feeds. Try specifying the category parameter.")))
+        return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Paper with arXiv ID '$arXiv_id' not found in recent Atom feeds. Try specifying the category parameter.")))
     end
 )
 
@@ -78,8 +78,8 @@ server = mcp_server(
         fetch_daily_new_submissions_tool,
         fetch_daily_cross_listed_tool,
         fetch_all_daily_updates_tool,
-        get_arxiv_paper_tool,
-        list_arxiv_categories_tool,
+        get_arXiv_paper_tool,
+        list_arXiv_categories_tool,
     ]
 )
 

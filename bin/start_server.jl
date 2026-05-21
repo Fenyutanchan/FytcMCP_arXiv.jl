@@ -9,5 +9,4 @@
 using FytcMCP_arXiv
 using ModelContextProtocol
 
-server = FytcMCP_arXiv.server
-start!(server)
+FytcMCP_arXiv.server |> start!

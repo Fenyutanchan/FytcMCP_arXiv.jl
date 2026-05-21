@@ -36,11 +36,11 @@ fetch_daily_new_submissions_tool = MCPTool(
         end
 
         try
-            doc = fetch_rss_feed(category)
-            papers = parse_rss_items(doc; announce_type="new")
+            doc = fetch_atom_feed(category)
+            papers = parse_atom_items(doc; announce_type="new")
             return TextContent(text = papers_to_json(papers; max_abstract_length=max_len))
         catch e
-            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv RSS feed for category '$category': $e")))
+            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv Atom feed for category '$category': $e")))
         end
     end
 )
@@ -76,11 +76,11 @@ fetch_daily_cross_listed_tool = MCPTool(
         end
 
         try
-            doc = fetch_rss_feed(category)
-            papers = parse_rss_items(doc; announce_type="cross")
+            doc = fetch_atom_feed(category)
+            papers = parse_atom_items(doc; announce_type="cross")
             return TextContent(text = papers_to_json(papers; max_abstract_length=max_len))
         catch e
-            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv RSS feed for category '$category': $e")))
+            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv Atom feed for category '$category': $e")))
         end
     end
 )
@@ -115,11 +115,11 @@ fetch_all_daily_updates_tool = MCPTool(
         end
 
         try
-            doc = fetch_rss_feed(category)
-            papers = parse_rss_items(doc)
+            doc = fetch_atom_feed(category)
+            papers = parse_atom_items(doc)
             return TextContent(text = papers_to_json(papers; max_abstract_length=max_len))
         catch e
-            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv RSS feed for category '$category': $e")))
+            return TextContent(text = JSON3.write(Dict("error" => true, "message" => "Error fetching arXiv Atom feed for category '$category': $e")))
         end
     end
 )
@@ -127,18 +127,18 @@ fetch_all_daily_updates_tool = MCPTool(
 ## Constants
 ## -----------------------------------------------------------------------------
 
-const ARXIV_RSS_BASE_URL = "https://rss.arxiv.org/atom/"
+const ARXIV_ATOM_BASE_URL = "https://rss.arxiv.org/atom/"
 
 ## Helper functions
 ## -----------------------------------------------------------------------------
 
 """
-    fetch_rss_feed(category::String)::EzXML.Document
+    fetch_atom_feed(category::String)::EzXML.Document
 
 Fetch the arXiv Atom feed for a given category.
 """
-function fetch_rss_feed(category::String)::EzXML.Document
-    url = ARXIV_RSS_BASE_URL * category
+function fetch_atom_feed(category::String)::EzXML.Document
+    url = ARXIV_ATOM_BASE_URL * category
     response = HTTP.get(url; headers=Dict("User-Agent" => "FytcMCP_arXiv/0.1.0"))
     if response.status != 200
         error("Failed to fetch arXiv Atom feed: HTTP $(response.status)")
@@ -147,11 +147,11 @@ function fetch_rss_feed(category::String)::EzXML.Document
 end
 
 """
-    extract_arxiv_id(link::String)::String
+    extract_arXiv_id(link::String)::String
 
 Extract arXiv ID from a URL like `https://arxiv.org/abs/2605.20332`.
 """
-function extract_arxiv_id(link::String)::String
+function extract_arXiv_id(link::String)::String
     m = match(r"(\d+\.\d+)", link)
     return m !== nothing ? m.captures[1] : link
 end
@@ -159,7 +159,7 @@ end
 """
     parse_description(desc::String)::Dict{String, String}
 
-Parse the `<description>` field of an RSS item into structured data.
+Parse the `<description>` field of an Atom entry into structured data.
 The description typically looks like:
     `arXiv:2605.20332v1 Announce Type: new \\nAbstract: ...`
 """
@@ -225,7 +225,7 @@ function parse_atom_entries(feed::EzXML.Node; announce_type::Union{Nothing, Stri
         title = title_node !== nothing ? nodecontent(title_node) : ""
         link_node = _find_child(entry, "link")
         link = link_node !== nothing ? link_node["href"] : ""
-        arxiv_id = extract_arxiv_id(link)
+        arXiv_id = extract_arXiv_id(link)
 
         creator_node = _find_child(entry, "creator")
         authors = creator_node !== nothing ? nodecontent(creator_node) : ""
@@ -246,7 +246,7 @@ function parse_atom_entries(feed::EzXML.Node; announce_type::Union{Nothing, Stri
         pub_date = pub_date_node !== nothing ? nodecontent(pub_date_node) : ""
 
         push!(results, Dict(
-            "arxiv_id" => arxiv_id,
+            "arXiv_id" => arXiv_id,
             "title" => title,
             "authors" => authors,
             "abstract" => abstract,
@@ -261,12 +261,12 @@ function parse_atom_entries(feed::EzXML.Node; announce_type::Union{Nothing, Stri
 end
 
 """
-    parse_rss_items(doc::EzXML.Document; announce_type::Union{Nothing, String}=nothing)::Vector{Dict}
+    parse_atom_items(doc::EzXML.Document; announce_type::Union{Nothing, String}=nothing)::Vector{Dict}
 
 Parse `<entry>` elements from an arXiv Atom feed document.
 If `announce_type` is specified (e.g., "new" or "cross"), only entries of that type are returned.
 """
-function parse_rss_items(doc::EzXML.Document; announce_type::Union{Nothing, String}=nothing)::Vector{Dict}
+function parse_atom_items(doc::EzXML.Document; announce_type::Union{Nothing, String}=nothing)::Vector{Dict}
     return parse_atom_entries(root(doc); announce_type)
 end
 
