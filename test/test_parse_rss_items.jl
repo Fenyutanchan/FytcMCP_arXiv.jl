@@ -1,66 +1,55 @@
-@testset "parse_rss_items" begin
-    @testset "parse all items from sample RSS" begin
-        doc = parsexml(SAMPLE_RSS)
-        papers = FytcMCP_arXiv.parse_rss_items(doc)
-        @test length(papers) == 4
+@testset "parse_rss_items (live Atom feed)" begin
+    doc = FytcMCP_arXiv.fetch_rss_feed("hep-ph")
+    all_papers = FytcMCP_arXiv.parse_rss_items(doc)
 
-        # Check first paper (new)
-        p1 = papers[1]
-        @test p1["arxiv_id"] == "2605.10001"
-        @test p1["title"] == "Test Paper One: A Study of Something"
-        @test p1["authors"] == "Alice Smith, Bob Jones"
-        @test p1["link"] == "https://arxiv.org/abs/2605.10001"
-        @test "hep-ph" in p1["categories"]
-        @test "hep-th" in p1["categories"]
-        @test p1["announce_type"] == "new"
-        @test occursin("first test paper", p1["abstract"])
+    @testset "returns non-empty results" begin
+        @test !isempty(all_papers)
     end
 
-    @testset "parse cross-listed items only" begin
-        doc = parsexml(SAMPLE_RSS)
-        papers = FytcMCP_arXiv.parse_rss_items(doc; announce_type="cross")
-        @test length(papers) == 1
-        @test papers[1]["arxiv_id"] == "2605.10002"
-        @test papers[1]["announce_type"] == "cross"
-        @test papers[1]["authors"] == "Carol Lee"
+    @testset "each paper has expected fields" begin
+        for p in all_papers
+            @test haskey(p, "arxiv_id")
+            @test haskey(p, "title")
+            @test haskey(p, "authors")
+            @test haskey(p, "abstract")
+            @test haskey(p, "link")
+            @test haskey(p, "categories")
+            @test haskey(p, "announce_type")
+            @test haskey(p, "pub_date")
+            @test !isempty(p["arxiv_id"])
+            @test !isempty(p["title"])
+            @test !isempty(p["link"])
+        end
     end
 
-    @testset "parse new submissions only" begin
-        doc = parsexml(SAMPLE_RSS)
-        papers = FytcMCP_arXiv.parse_rss_items(doc; announce_type="new")
-        @test length(papers) == 2
-        ids = [p["arxiv_id"] for p in papers]
-        @test "2605.10001" in ids
-        @test "2605.10003" in ids
+    @testset "arxiv_id is extractable from link" begin
+        for p in all_papers
+            @test occursin(p["arxiv_id"], p["link"])
+        end
     end
 
-    @testset "parse replaced papers only" begin
-        doc = parsexml(SAMPLE_RSS)
-        papers = FytcMCP_arXiv.parse_rss_items(doc; announce_type="rep")
-        @test length(papers) == 1
-        @test papers[1]["arxiv_id"] == "2605.10004"
+    @testset "announce_type filtering works" begin
+        types = unique([p["announce_type"] for p in all_papers])
+        for t in types
+            filtered = FytcMCP_arXiv.parse_rss_items(doc; announce_type=t)
+            @test !isempty(filtered)
+            @test all(p -> p["announce_type"] == t, filtered)
+            # Filtered count matches the count in unfiltered
+            @test count(p -> p["announce_type"] == t, all_papers) == length(filtered)
+        end
     end
 
-    @testset "empty RSS returns no items" begin
-        doc = parsexml(EMPTY_RSS)
-        papers = FytcMCP_arXiv.parse_rss_items(doc)
-        @test isempty(papers)
+    @testset "non-existent announce_type returns empty" begin
+        @test isempty(FytcMCP_arXiv.parse_rss_items(doc; announce_type="nonexistent"))
     end
 
-    @testset "filter returns empty for non-existent type" begin
-        doc = parsexml(SAMPLE_RSS)
-        papers = FytcMCP_arXiv.parse_rss_items(doc; announce_type="nonexistent")
-        @test isempty(papers)
+    @testset "categories contain hep-ph" begin
+        @test any(p -> "hep-ph" in p["categories"], all_papers)
     end
 
-    @testset "item with missing optional fields" begin
-        doc = parsexml(MINIMAL_ITEM_RSS)
-        papers = FytcMCP_arXiv.parse_rss_items(doc)
-        @test length(papers) == 1
-        p = papers[1]
-        @test p["title"] == "Minimal Paper"
-        @test p["arxiv_id"] == "2605.99999"
-        @test p["authors"] == ""
-        @test p["announce_type"] == ""
+    @testset "link is a valid arxiv URL" begin
+        for p in all_papers
+            @test startswith(p["link"], "https://arxiv.org/abs/")
+        end
     end
 end

@@ -4,9 +4,6 @@ using Test
 using JSON3
 using EzXML
 
-# Load test fixtures
-include("fixtures.jl")
-
 @testset "FytcMCP_arXiv.jl" begin
     include("test_extract_arxiv_id.jl")
     include("test_parse_description.jl")

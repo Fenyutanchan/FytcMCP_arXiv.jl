@@ -36,7 +36,7 @@
         end
     end
 
-    @testset "list_arxiv_categories handler" begin
+    @testset "list_arxiv_categories handler (live)" begin
         t = only(filter(t -> t.name == "list_arxiv_categories", FytcMCP_arXiv.server.tools))
 
         @testset "without filter" begin
@@ -53,7 +53,6 @@
             data = JSON3.read(result.text)
             @test data["count"] > 0
             @test data["filter"] == "hep"
-            # All categories should contain "hep"
             for (group, subs) in pairs(data["categories"])
                 for s in subs
                     @test occursin("hep", lowercase(s))
@@ -65,6 +64,39 @@
             result = t.handler(Dict{String, Any}("filter" => "zzzznonexistent"))
             data = JSON3.read(result.text)
             @test data["count"] == 0
+        end
+    end
+
+    @testset "fetch_daily_new_submissions handler (live)" begin
+        t = only(filter(t -> t.name == "fetch_daily_new_submissions", FytcMCP_arXiv.server.tools))
+        result = t.handler(Dict{String, Any}("category" => "hep-ph"))
+        @test isa(result, TextContent)
+        data = JSON3.read(result.text)
+        @test haskey(data, "count")
+        @test haskey(data, "papers")
+        if data["count"] > 0
+            p = data["papers"][1]
+            @test haskey(p, "arxiv_id")
+            @test haskey(p, "title")
+            @test haskey(p, "abstract")
+            @test p["announce_type"] == "new"
+        end
+    end
+
+    @testset "fetch_all_daily_updates handler (live)" begin
+        t = only(filter(t -> t.name == "fetch_all_daily_updates", FytcMCP_arXiv.server.tools))
+        result = t.handler(Dict{String, Any}("category" => "hep-ph"))
+        data = JSON3.read(result.text)
+        @test data["count"] > 0
+    end
+
+    @testset "abstract truncation in handler" begin
+        t = only(filter(t -> t.name == "fetch_daily_new_submissions", FytcMCP_arXiv.server.tools))
+        result = t.handler(Dict{String, Any}("category" => "hep-ph", "max_abstract_length" => "50"))
+        data = JSON3.read(result.text)
+        if data["count"] > 0
+            p = data["papers"][1]
+            @test length(p["abstract"]) <= 53  # 50 + "..."
         end
     end
 end

@@ -10,173 +10,7 @@ using HTTP
 using EzXML
 using JSON3
 
-# const ARXIV_RSS_BASE_URL = "http://export.arxiv.org/rss"
-const ARXIV_RSS_BASE_URL = "https://rss.arxiv.org/atom/"
-
-## Helper functions
-## -----------------------------------------------------------------------------
-
-"""
-    fetch_rss_feed(category::String) -> EzXML.Document
-
-Fetch the arXiv RSS feed for a given category.
-"""
-function fetch_rss_feed(category::String)
-    url = ARXIV_RSS_BASE_URL * category
-    response = HTTP.get(url; headers=Dict("User-Agent" => "FytcMCP_arXiv/0.1.0"))
-    if response.status != 200
-        error("Failed to fetch arXiv RSS feed: HTTP $(response.status)")
-    end
-    return parsexml(String(response.body))
-end
-
-"""
-    extract_arxiv_id(link::String) -> String
-
-Extract arXiv ID from a URL like `https://arxiv.org/abs/2605.20332`.
-"""
-function extract_arxiv_id(link::String)
-    m = match(r"(\d+\.\d+)", link)
-    return m !== nothing ? m.captures[1] : link
-end
-
-"""
-    parse_description(desc::String) -> Dict
-
-Parse the `<description>` field of an RSS item into structured data.
-The description typically looks like:
-    `arXiv:2605.20332v1 Announce Type: new \nAbstract: ...`
-"""
-function parse_description(desc::String)
-    result = Dict{String, String}()
-
-    # Extract announce type
-    type_match = match(r"Announce Type:\s*(\w+)", desc)
-    if type_match !== nothing
-        result["announce_type"] = type_match.captures[1]
-    end
-
-    # Extract abstract
-    abstract_match = match(r"Abstract:\s*(.+)"s, desc)
-    if abstract_match !== nothing
-        result["abstract"] = strip(abstract_match.captures[1])
-    end
-
-    return result
-end
-
-"""
-    parse_rss_items(doc::EzXML.Document; announce_type::Union{Nothing, String}=nothing) -> Vector{Dict}
-
-Parse all `<item>` elements from the RSS document.
-If `announce_type` is specified (e.g., "new" or "cross"), only items of that type are returned.
-"""
-function parse_rss_items(doc::EzXML.Document; announce_type::Union{Nothing, String}=nothing)
-    items = findall("//channel/item", root(doc))
-    results = Dict[]
-
-    for item in items
-        title_node = findfirst("title", item)
-        link_node = findfirst("link", item)
-        desc_node = findfirst("description", item)
-        creator_node = findfirst("dc:creator", item)
-        announce_node = findfirst("arxiv:announce_type", item)
-        category_nodes = findall("category", item)
-        pubdate_node = findfirst("pubDate", item)
-
-        item_announce = announce_node !== nothing ? nodecontent(announce_node) : ""
-
-        # Filter by announce type if specified
-        if announce_type !== nothing && item_announce != announce_type
-            continue
-        end
-
-        link = link_node !== nothing ? nodecontent(link_node) : ""
-        arxiv_id = extract_arxiv_id(link)
-        title = title_node !== nothing ? nodecontent(title_node) : ""
-        authors = creator_node !== nothing ? nodecontent(creator_node) : ""
-        categories = [nodecontent(c) for c in category_nodes]
-
-        abstract = ""
-        if desc_node !== nothing
-            desc_text = nodecontent(desc_node)
-            parsed_desc = parse_description(desc_text)
-            abstract = get(parsed_desc, "abstract", "")
-        end
-
-        pub_date = pubdate_node !== nothing ? nodecontent(pubdate_node) : ""
-
-        push!(results, Dict(
-            "arxiv_id" => arxiv_id,
-            "title" => title,
-            "authors" => authors,
-            "abstract" => abstract,
-            "link" => link,
-            "categories" => categories,
-            "announce_type" => item_announce,
-            "pub_date" => pub_date,
-        ))
-    end
-
-    return results
-end
-
-"""
-    truncate_abstract(paper::Dict, max_length::Int) -> Dict
-
-Return a copy of `paper` with the abstract truncated if needed.
-"""
-function truncate_abstract(paper::Dict, max_length::Int)
-    if max_length > 0 && length(paper["abstract"]) > max_length
-        p = copy(paper)
-        p["abstract"] = "$(paper["abstract"][1:max_length])..."
-        return p
-    end
-    return paper
-end
-
-"""
-    papers_to_json(papers::Vector{Dict}; max_abstract_length::Int=0) -> String
-
-Serialize a list of paper Dicts to a JSON string.
-"""
-function papers_to_json(papers::AbstractVector; max_abstract_length::Int=0)
-    result = Dict{String, Any}(
-        "count" => length(papers),
-        "papers" => [truncate_abstract(p, max_abstract_length) for p in papers],
-    )
-    return JSON3.write(result)
-end
-
-## List of supported arXiv categories
-## -----------------------------------------------------------------------------
-
-const ARXIV_CATEGORIES = [
-    # Physics
-    "astro-ph", "astro-ph.CO", "astro-ph.EP", "astro-ph.GA", "astro-ph.HE", "astro-ph.IM", "astro-ph.SR",
-    "cond-mat", "cond-mat.dis-nn", "cond-mat.mes-hall", "cond-mat.mtrl-sci", "cond-mat.other", "cond-mat.quant-gas", "cond-mat.soft", "cond-mat.stat-mech", "cond-mat.str-el", "cond-mat.supr-con",
-    "gr-qc",
-    "hep-ex", "hep-lat", "hep-ph", "hep-th",
-    "math-ph",
-    "nlin", "nlin.AO", "nlin.CD", "nlin.CG", "nlin.PS", "nlin.SI",
-    "nucl-ex", "nucl-th",
-    "physics", "physics.acc-ph", "physics.ao-ph", "physics.app-ph", "physics.atm-clus", "physics.atom-ph", "physics.bio-ph", "physics.chem-ph", "physics.class-ph", "physics.comp-ph", "physics.data-an", "physics.ed-ph", "physics.flu-dyn", "physics.gen-ph", "physics.geo-ph", "physics.hist-ph", "physics.ins-det", "physics.med-ph", "physics.optics", "physics.plasm-ph", "physics.pop-ph", "physics.soc-ph", "physics.space-ph",
-    "quant-ph",
-    # Mathematics
-    "math", "math.AG", "math.AT", "math.AP", "math.CT", "math.CA", "math.CO", "math.AC", "math.CV", "math.DG", "math.DS", "math.FA", "math.GM", "math.GN", "math.GT", "math.GR", "math.HO", "math.IT", "math.KT", "math.LO", "math.MP", "math.MG", "math.NT", "math.NA", "math.OA", "math.OC", "math.PR", "math.QA", "math.RT", "math.RA", "math.SP", "math.ST",
-    # Computer Science
-    "cs", "cs.AI", "cs.AR", "cs.CC", "cs.CE", "cs.CG", "cs.CL", "cs.CR", "cs.CV", "cs.CY", "cs.DB", "cs.DL", "cs.DM", "cs.DS", "cs.ET", "cs.FL", "cs.GL", "cs.GR", "cs.GT", "cs.HC", "cs.IR", "cs.IT", "cs.LG", "cs.LO", "cs.MA", "cs.MM", "cs.MS", "cs.NA", "cs.NE", "cs.NI", "cs.OH", "cs.OS", "cs.PF", "cs.PL", "cs.RO", "cs.SC", "cs.SD", "cs.SE", "cs.SI", "cs.SY",
-    # Quantitative Biology
-    "q-bio", "q-bio.BM", "q-bio.CB", "q-bio.GN", "q-bio.MN", "q-bio.NC", "q-bio.OT", "q-bio.PE", "q-bio.QM", "q-bio.SC", "q-bio.TO",
-    # Quantitative Finance
-    "q-fin", "q-fin.CP", "q-fin.EC", "q-fin.GN", "q-fin.MF", "q-fin.PM", "q-fin.PR", "q-fin.RM", "q-fin.ST", "q-fin.TR",
-    # Statistics
-    "stat", "stat.AP", "stat.CO", "stat.ML", "stat.ME", "stat.OT", "stat.TH",
-    # EESS
-    "eess", "eess.AS", "eess.IV", "eess.SP", "eess.SY",
-    # Economics
-    "econ", "econ.EM", "econ.GN", "econ.TH",
-]
+include("everyday.jl")
 
 ## MCP Tools
 ## -----------------------------------------------------------------------------
@@ -367,10 +201,11 @@ list_arxiv_categories_tool = MCPTool(
     ],
     handler = function(params)
         filter_str = get(params, "filter", "")
+        cats = arxiv_categories()
         filtered = if filter_str != ""
-            filter(c -> occursin(lowercase(filter_str), lowercase(c)), ARXIV_CATEGORIES)
+            filter(c -> occursin(lowercase(filter_str), lowercase(c)), cats)
         else
-            ARXIV_CATEGORIES
+            cats
         end
 
         # Group by top-level category
