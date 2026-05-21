@@ -1,0 +1,6 @@
+[deps]
+EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
+FytcMCP_arXiv = "e1a6ba65-6bd2-43e2-9141-ae0d892f2e8f"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+ModelContextProtocol = "c58f755f-f2a7-4f48-bf29-4e9659b78499"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
