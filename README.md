@@ -19,7 +19,7 @@ Provides 5 MCP tools for interacting with arXiv:
 ### Start the MCP server (stdio transport)
 
 ```bash
-julia --project bin/start_server.jl
+/path/to/FytcMCP_arXiv/bin/start_server.jl
 ```
 
 ### Configure in MCP client (e.g., Claude Desktop, VS Code Copilot)
@@ -30,8 +30,7 @@ Add to your MCP settings:
 {
   "mcpServers": {
     "FytcMCP_arXiv": {
-      "command": "julia",
-      "args": ["--project", "/path/to/FytcMCP_arXiv", "bin/start_server.jl"]
+      "command": "/path/to/FytcMCP_arXiv/bin/start_server.jl"
     }
   }
 }
